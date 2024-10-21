@@ -1,2 +1,3 @@
-# Rust
-Experimentation with the Rust programming language.
+# SudokuSolver
+
+A Sudoku built in Rust using simple backtracking.
