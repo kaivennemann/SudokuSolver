@@ -1,12 +1,33 @@
 use std::collections::HashSet;
 
 pub struct Sudoku<'a> {
-    board: &'a mut [[i32; 9]; 9]
+    board: &'a mut [[i32; 9]; 9],
+    empty_cells: usize
 }
 
 impl<'a> Sudoku<'a> {
     pub fn new(board: &'a mut [[i32; 9]; 9]) -> Self {
-        Self { board }
+        let empty_cells = Self::count_empty_cells(board);
+        let this = Self {
+            board,
+            empty_cells
+        };
+
+        if !this.is_valid_sudoku() {
+            panic!("Invalid Sudoku board");
+        }
+
+        this
+    }
+
+    fn count_empty_cells(board: &[[i32; 9]; 9]) -> usize {
+        let mut empty_cells = 0;
+        for row in board.iter() {
+            for val in row.iter() {
+                if *val == 0 { empty_cells += 1; }
+            }
+        }
+        empty_cells
     }
 
     pub fn print(&self) {
@@ -18,7 +39,7 @@ impl<'a> Sudoku<'a> {
         }
     }
 
-    pub fn get_row(&self, row: usize) -> Vec<i32> {
+    fn get_row(&self, row: usize) -> Vec<i32> {
         let mut row_vals: Vec<i32> = Vec::new();
         for col in 0..9 {
             row_vals.push(self.board[row][col]);
@@ -26,7 +47,7 @@ impl<'a> Sudoku<'a> {
         row_vals
     }
 
-    pub fn get_column(&self, col: usize) -> Vec<i32> {
+    fn get_column(&self, col: usize) -> Vec<i32> {
         let mut column: Vec<i32> = Vec::new();
         for row in self.board.iter() {
             column.push(row[col]);
@@ -34,7 +55,7 @@ impl<'a> Sudoku<'a> {
         column
     }
 
-    pub fn get_box_vals(&self, box_num: usize) -> Vec<i32> {
+    fn get_box_vals(&self, box_num: usize) -> Vec<i32> {
         let mut box_vals: Vec<i32> = Vec::new();
         let row_start = (box_num / 3) * 3;
         let col_start = (box_num % 3) * 3;
@@ -48,12 +69,12 @@ impl<'a> Sudoku<'a> {
         box_vals
     }
 
-    pub fn get_box_of_cell(&self, row: usize, col: usize) -> Vec<i32> {
+    fn get_box_of_cell(&self, row: usize, col: usize) -> Vec<i32> {
         let box_num = (row / 3) * 3 + col / 3;
         self.get_box_vals(box_num)
     }
 
-    pub fn is_one_to_nine(&self, vec: Vec<i32>) -> bool {
+    fn is_one_to_nine(&self, vec: Vec<i32>) -> bool {
         if vec.len() != 9 {
             return false;
         }
@@ -64,7 +85,33 @@ impl<'a> Sudoku<'a> {
         unique_elements == one_to_nine
     }
 
-    pub fn is_fully_solved(&self) -> bool {
+    fn is_valid_vector(&self, vec: Vec<i32>) -> bool {
+        let mut elements: HashSet<i32> = HashSet::with_capacity(9);
+        for val in vec.iter() {
+            let result = elements.insert(*val);
+            if *val != 0 && (!result || *val > 9 || *val < 1) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn is_valid_sudoku(&self) -> bool {
+        for i in 0..9 {
+            let row_vals = self.get_row(i);
+            let col_vals = self.get_column(i);
+            let box_vals = self.get_box_vals(i);
+            if !self.is_valid_vector(row_vals) ||
+                !self.is_valid_vector(col_vals) ||
+                !self.is_valid_vector(box_vals)
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn is_fully_solved(&self) -> bool {
         for i in 0..9 {
             let row_vals = self.get_row(i);
             let col_vals = self.get_column(i);
@@ -79,7 +126,7 @@ impl<'a> Sudoku<'a> {
         true
     }
 
-    pub fn find_next_free_cell(&self) -> Option<(usize, usize)> {
+    fn find_next_free_cell(&self) -> Option<(usize, usize)> {
         for row in 0..9 {
             for col in 0..9 {
                 if self.board[row][col] == 0 {
@@ -90,7 +137,7 @@ impl<'a> Sudoku<'a> {
         None
     }
 
-    pub fn get_possible_values(&self, row: usize, col: usize) -> HashSet<i32> {
+    fn get_possible_values(&self, row: usize, col: usize) -> HashSet<i32> {
         let mut possible_values: HashSet<i32> = (1..=9).collect();
         for val in self.get_row(row) {
             possible_values.remove(&val);
@@ -105,18 +152,20 @@ impl<'a> Sudoku<'a> {
     }
 
     pub fn solve(&mut self) -> bool { // need &mut to allow mutating in place
-        if self.is_fully_solved() {
-            return true;
+        if self.empty_cells == 0 {
+            return self.is_fully_solved();
         } else {
             match self.find_next_free_cell() {
                 Some((row, col)) => {
+                    self.empty_cells -= 1;
                     for val in self.get_possible_values(row, col) {
                         self.board[row][col] = val;
                         if self.solve() {
                             return true;
                         }
-                        self.board[row][col] = 0;
                     }
+                    self.board[row][col] = 0;
+                    self.empty_cells += 1;
                     return false;
                 },
                 None => false,
